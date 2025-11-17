@@ -489,6 +489,86 @@ python http_server.py
 curl "http://localhost:8000/query?limit=5"
 ```
 
+## Testing
+
+This project includes comprehensive tests using pytest. See [TESTING.md](TESTING.md) for detailed documentation.
+
+### Quick Start
+
+```bash
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+make test
+
+# Run specific test categories
+make test-unit          # Unit tests only (fast)
+make test-integration   # Integration tests
+make test-coverage      # Generate coverage report
+```
+
+### Test Structure
+
+The test suite includes:
+
+- **Unit Tests**: Fast tests for individual components (query engine, parsers, API endpoints)
+- **Integration Tests**: End-to-end workflow tests with real DuckDB
+- **Performance Tests**: Tests for performance characteristics
+- **100+ test cases** covering all major functionality
+
+### Test Categories
+
+```bash
+# Unit tests (fast, mocked dependencies)
+pytest -m unit
+
+# Integration tests (with real DuckDB)
+pytest -m integration
+
+# Run with coverage report
+pytest --cov=. --cov-report=html
+```
+
+### Using the Test Runner
+
+The included `run_tests.sh` script provides convenient test commands:
+
+```bash
+./run_tests.sh unit         # Unit tests only
+./run_tests.sh integration  # Integration tests
+./run_tests.sh coverage     # With coverage report
+./run_tests.sh api          # HTTP API tests only
+./run_tests.sh mcp          # MCP tools tests only
+./run_tests.sh ci           # CI test suite
+```
+
+### Test Coverage
+
+Current coverage targets:
+- Overall: > 80%
+- Query Engine: > 90%
+- Parsers: > 85%
+- HTTP API: > 80%
+- MCP Tools: > 85%
+
+View detailed coverage report:
+```bash
+make test-coverage
+open htmlcov/index.html  # Opens coverage report in browser
+```
+
+### Test Files
+
+- `tests/test_query_engine.py` - DuckDB query engine tests
+- `tests/test_parsers.py` - Loki and AI query parser tests
+- `tests/test_http_api.py` - HTTP API endpoint tests
+- `tests/test_mcp_tools.py` - FastMCP tool tests
+- `tests/test_integration.py` - Integration tests
+- `tests/conftest.py` - Shared fixtures and configuration
+
+For more details, see the [Testing Guide](TESTING.md).
+
 ## Next Steps
 
 1. **Integrate with Claude Desktop**: Use the FastMCP server with Claude Desktop MCP
