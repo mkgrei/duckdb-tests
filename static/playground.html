@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DuckDB Playground</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="playground">
+
+<nav class="topnav">
+  <a class="brand" href="/">🦆 DuckDB Explained</a>
+  <a class="navlink" href="/">Learn</a>
+  <a class="navlink active" href="/playground">Playground</a>
+  <span class="spacer"></span>
+  <a class="navlink" href="/docs" title="FastAPI auto-generated API docs">API docs</a>
+</nav>
+
+<main>
+  <!-- left: guided tour -->
+  <div class="panel">
+    <h2>🗺️ Guided tour</h2>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:0">
+      Eight steps, in order. Each one runs real SQL against the live DuckDB
+      database on the server — watch the <strong>DB State</strong> panel react.
+    </p>
+    <div id="tour"></div>
+  </div>
+
+  <!-- center: editor + results -->
+  <div class="panel">
+    <h2>⌨️ SQL editor</h2>
+    <textarea id="sql-editor" spellcheck="false"
+      placeholder="Type any SQL here, or pick a tour step on the left…">SELECT count(*) AS orders, round(sum(amount), 2) AS revenue FROM sales;</textarea>
+    <div class="editor-buttons">
+      <button class="primary" id="btn-run">▶ Run</button>
+      <button id="btn-explain">Explain</button>
+      <button id="btn-explain-analyze" title="EXPLAIN ANALYZE — actually runs the query and shows per-operator timings">Explain Analyze</button>
+      <span class="meta" id="run-meta"></span>
+    </div>
+
+    <div class="explanation" id="explanation"><span class="t">What this teaches</span><div id="explanation-text"></div></div>
+    <div class="error-box" id="error-box"></div>
+
+    <div id="results-wrap"></div>
+    <div class="results-meta" id="results-meta"></div>
+
+    <div id="explain-pane">
+      <span class="t">Query plan</span>
+      <pre id="explain-text"></pre>
+    </div>
+  </div>
+
+  <!-- right: db state -->
+  <div class="panel sticky">
+    <h2>🗄️ DB State <span style="font-weight:400;font-size:.75rem;color:var(--muted)">(live)</span></h2>
+    <div id="state-tables"></div>
+    <div class="state-meta" id="state-meta"></div>
+    <div style="margin-top:14px">
+      <button id="btn-reset" style="width:100%">↺ Reset database</button>
+    </div>
+  </div>
+</main>
+
+<script src="/static/js/playground.js"></script>
+</body>
+</html>
