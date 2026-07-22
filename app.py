@@ -1,6 +1,7 @@
 """DuckDB Explained — educational site + live playground.
 
-Run with:  python app.py   (serves on http://127.0.0.1:8000)
+Run with:  python app.py [--host HOST] [--port PORT]
+Defaults to http://127.0.0.1:8000; $HOST / $PORT env vars are also honored.
 """
 
 from contextlib import asynccontextmanager
@@ -183,6 +184,23 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 if __name__ == "__main__":
+    import argparse
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    parser = argparse.ArgumentParser(description="DuckDB Explained server")
+    parser.add_argument(
+        "--host",
+        default=os.getenv("HOST", "127.0.0.1"),
+        help="bind address (default: $HOST or 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PORT", "8000")),
+        help="port to listen on (default: $PORT or 8000)",
+    )
+    cli = parser.parse_args()
+
+    uvicorn.run(app, host=cli.host, port=cli.port)

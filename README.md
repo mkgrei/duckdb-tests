@@ -38,6 +38,9 @@ python app.py
 # open http://127.0.0.1:8000
 ```
 
+Host and port are configurable via `--host` / `--port` flags or the `HOST` /
+`PORT` environment variables (flags win): `python app.py --port 9000`.
+
 Sample data (`data/sales.csv`, ~5,000 rows, and `data/products.parquet`) is
 generated automatically on first startup; the DuckDB database file lives at
 `data/playground.duckdb`.
