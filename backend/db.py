@@ -39,12 +39,20 @@ def _seed(con: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def _configure(con: duckdb.DuckDBPyConnection) -> None:
+    """Extensions + S3 credentials, so s3:// paths work in any query."""
+    from . import s3_logs
+
+    s3_logs.configure_connection(con)
+
+
 def startup() -> None:
     global _con
     with _lock:
         sample_data.generate()
         DB_FILE.parent.mkdir(exist_ok=True)
         _con = duckdb.connect(str(DB_FILE))
+        _configure(_con)
         _seed(_con)
 
 
@@ -65,10 +73,11 @@ def reset() -> None:
         DB_FILE.unlink(missing_ok=True)
         Path(str(DB_FILE) + ".wal").unlink(missing_ok=True)
         _con = duckdb.connect(str(DB_FILE))
+        _configure(_con)
         _seed(_con)
 
 
-def run_sql(sql: str) -> dict:
+def run_sql(sql: str, params: list | None = None, max_rows: int = MAX_ROWS) -> dict:
     """Execute SQL (may contain multiple statements) and shape the result.
 
     Raises duckdb.Error on bad SQL — callers surface the message verbatim,
@@ -77,13 +86,13 @@ def run_sql(sql: str) -> dict:
     with _lock:
         assert _con is not None, "database not started"
         started = time.perf_counter()
-        cursor = _con.execute(sql)
+        cursor = _con.execute(sql, params) if params else _con.execute(sql)
         columns = [d[0] for d in cursor.description] if cursor.description else []
         rows = cursor.fetchall() if columns else []
         elapsed_ms = (time.perf_counter() - started) * 1000
 
-    truncated = len(rows) > MAX_ROWS
-    rows = rows[:MAX_ROWS]
+    truncated = len(rows) > max_rows
+    rows = rows[:max_rows]
     return {
         "columns": columns,
         "rows": [[_jsonable(v) for v in row] for row in rows],
