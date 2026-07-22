@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DuckDB Explained</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="learn">
+
+<nav class="topnav">
+  <a class="brand" href="/">🦆 DuckDB Explained</a>
+  <a class="navlink active" href="/">Learn</a>
+  <a class="navlink" href="/playground">Playground</a>
+  <span class="spacer"></span>
+  <a class="navlink" href="#why">Why</a>
+  <a class="navlink" href="#storage">Storage</a>
+  <a class="navlink" href="#inprocess">In-process</a>
+  <a class="navlink" href="#vectorized">Execution</a>
+  <a class="navlink" href="#compare">Compare</a>
+</nav>
+
+<main>
+  <div class="hero">
+    <div class="duck">🦆</div>
+    <h1>DuckDB, explained</h1>
+    <p class="sub">
+      Why does it exist, what makes it different, and why is everyone in data
+      suddenly using it? Scroll through the ideas, then try them live in the
+      <a href="/playground">playground</a>.
+    </p>
+  </div>
+
+  <!-- 1. why -->
+  <section class="card" id="why">
+    <h2><span class="num">1</span>Why does DuckDB exist?</h2>
+    <p>
+      Databases historically split along two axes. The <strong>workload</strong> axis:
+      <strong>OLTP</strong> systems (online transaction processing) handle many tiny
+      reads and writes — "update this order", "fetch this user" — while
+      <strong>OLAP</strong> systems (online analytical processing) answer big questions
+      over lots of rows — "revenue per region per month". The <strong>deployment</strong>
+      axis: a <strong>client–server</strong> database runs as its own process you connect
+      to over a socket, while an <strong>in-process</strong> database is just a library
+      living inside your application.
+    </p>
+    <p>
+      Fill in the grid and you find three crowded corners… and one that was empty
+      for decades:
+    </p>
+    <div class="diagram-wrap" id="quadrant-mount"></div>
+    <div class="callout">
+      <strong>SQLite for analytics.</strong> That's the elevator pitch. Analysts and data
+      scientists were stuck choosing between heavyweight warehouses (Snowflake, BigQuery —
+      powerful, but remote, slow to set up, costly) and in-memory dataframes (pandas —
+      convenient, but no SQL engine, single-threaded, dies on larger-than-RAM data).
+      DuckDB (born 2019 at <a href="https://www.cwi.nl/" target="_blank" rel="noopener">CWI</a>,
+      the Dutch research institute behind decades of database research) filled the gap:
+      a full analytical SQL engine you just <code>pip install</code>.
+    </div>
+  </section>
+
+  <!-- 2. storage -->
+  <section class="card" id="storage">
+    <h2><span class="num">2</span>Columnar storage: read only what you need</h2>
+    <p>
+      A <strong>row store</strong> lays each row's values contiguously — perfect for
+      "fetch order #42 with all its fields". A <strong>column store</strong> lays each
+      <em>column's</em> values contiguously — perfect for "average price across a million
+      orders", because the engine reads <em>only</em> the price column and skips the rest.
+    </p>
+    <p>
+      Watch both engines execute
+      <code>SELECT AVG(price) FROM orders</code> on the same 8-row table:
+    </p>
+    <div class="controls">
+      <button class="primary" id="rvc-run">▶ Run query</button>
+      <button id="rvc-reset">Reset</button>
+      <label class="svg-label" style="color:var(--muted);font-size:.85rem">
+        speed <input type="range" id="rvc-speed" min="30" max="200" value="90" style="vertical-align:middle">
+      </label>
+    </div>
+    <div class="diagram-wrap" style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap">
+      <div id="rvc-row-mount"></div>
+      <div id="rvc-col-mount"></div>
+    </div>
+    <div class="counter-row">
+      <div><div class="lbl">row store — cells read</div><div class="val bad" id="rvc-row-counter">0</div></div>
+      <div><div class="lbl">column store — cells read</div><div class="val good" id="rvc-col-counter">0</div></div>
+    </div>
+    <div class="callout">
+      <strong>40 vs 8.</strong> The row store dragged every customer name and date through
+      memory just to average one column — 80% of that I/O was waste (red cells). On real
+      tables with dozens of columns and millions of rows, this gap is the difference
+      between seconds and minutes. Columnar layout also compresses far better, since
+      values of the same type sit next to each other.
+    </div>
+  </section>
+
+  <!-- 3. in-process -->
+  <section class="card" id="inprocess">
+    <h2><span class="num">3</span>In-process: a database as a library</h2>
+    <p>
+      There is no DuckDB server. No port, no credentials, no daemon to babysit.
+      <code>import duckdb</code> and the entire engine lives inside your process —
+      a query is a <em>function call</em>, and results land in your program's memory
+      with zero copies over a network.
+    </p>
+    <div class="diagram-wrap" id="arch-mount"></div>
+    <div class="callout">
+      <strong>Why it matters:</strong> the red dot pays for serialization, sockets and
+      round-trips on every batch of rows. The green dot is a C++ function call.
+      When a query produces a big result — typical in analytics — transfer cost can
+      dominate everything else. It also means setup is <code>pip install duckdb</code>,
+      and your "database" is a single file you can email to a colleague.
+    </div>
+  </section>
+
+  <!-- 4. vectorized -->
+  <section class="card" id="vectorized">
+    <h2><span class="num">4</span>Vectorized execution: process 2048 rows at a time</h2>
+    <p>
+      Storage is only half the story — execution style is the other half. Classic
+      engines interpret query plans <strong>one tuple at a time</strong>: every row is
+      pushed through every operator with function calls, branches, and virtual dispatch.
+      DuckDB processes <strong>vectors of ~2048 values</strong> per call: the per-call
+      overhead is amortized 2048×, the inner loops are tight and branch-free, and data
+      stays hot in the CPU cache.
+    </p>
+    <div class="controls">
+      <button class="primary" id="vec-run">▶ Run both engines</button>
+      <button id="vec-reset">Reset</button>
+    </div>
+    <div class="diagram-wrap" id="vec-mount"></div>
+    <div class="counter-row">
+      <div><div class="lbl">tuple-at-a-time — operator calls</div><div class="val bad" id="vec-tuple-counter">0</div></div>
+      <div><div class="lbl">vectorized — operator calls</div><div class="val good" id="vec-vector-counter">0</div></div>
+    </div>
+    <div class="callout">
+      <strong>3 calls vs thousands.</strong> The chunk cleared the whole pipeline while the
+      tuple engine was still dripping rows through. This idea — vectorized, cache-friendly
+      execution — comes straight from the research lineage (MonetDB/X100) behind DuckDB.
+      You can see these operators yourself: run <code>EXPLAIN</code> in the playground.
+    </div>
+  </section>
+
+  <!-- 5. superpowers -->
+  <section class="card" id="superpowers">
+    <h2><span class="num">5</span>The superpowers you'll actually feel</h2>
+    <p><strong>Query files directly — no import step.</strong> A file path is a table:</p>
+    <pre style="background:#0b0d12;border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto"><code>SELECT category, avg(price)
+FROM 'products.parquet'          -- yes, that's the FROM clause
+JOIN 'sales.csv' USING (product_id)
+GROUP BY category;</code></pre>
+    <p>
+      CSV, Parquet, JSON, even files over HTTP or on S3 — DuckDB reads them in place,
+      infers schemas, and pushes column/filter selections down into the file scan.
+    </p>
+    <p><strong>Larger-than-RAM processing.</strong> Queries spill gracefully to disk, so
+      "my laptop has 16 GB" no longer means "my dataset must fit in 16 GB".</p>
+    <p><strong>Full modern SQL.</strong> Window functions, CTEs, <code>PIVOT</code>,
+      list/struct types, plus ergonomic extras like <code>GROUP BY ALL</code> and
+      <code>SELECT * EXCLUDE (…)</code>.</p>
+    <p><strong>Plays well with the ecosystem.</strong> Zero-copy exchange with pandas,
+      Polars and Arrow; a single-file database format; extensions for Postgres, SQLite,
+      JSON, geospatial…</p>
+  </section>
+
+  <!-- 6. comparison -->
+  <section class="card" id="compare">
+    <h2><span class="num">6</span>How it compares</h2>
+    <p style="color:var(--muted);font-size:.9rem">Click a column to highlight it.</p>
+    <table class="compare" id="compare-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th data-col="1">SQLite</th>
+          <th data-col="2">PostgreSQL</th>
+          <th data-col="3">pandas</th>
+          <th data-col="4">DuckDB 🦆</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Deployment</td><td>in-process</td><td>client–server</td><td>in-process (library)</td><td>in-process</td></tr>
+        <tr><td>Storage layout</td><td>rows</td><td>rows</td><td>columns (in RAM)</td><td>columns</td></tr>
+        <tr><td>Sweet spot</td><td>app-local OLTP</td><td>multi-user OLTP</td><td>small/medium wrangling</td><td>local OLAP / ETL</td></tr>
+        <tr><td>Larger than RAM</td><td>yes</td><td>yes</td><td>no</td><td>yes (spills to disk)</td></tr>
+        <tr><td>Parallel execution</td><td>no</td><td>yes</td><td>mostly single-core</td><td>yes, all cores</td></tr>
+        <tr><td>Query language</td><td>SQL (basic analytics)</td><td>full SQL</td><td>Python API</td><td>full analytical SQL</td></tr>
+        <tr><td>Query CSV/Parquet directly</td><td>no</td><td>via extensions</td><td>read into RAM first</td><td>yes, native</td></tr>
+        <tr><td>Setup</td><td>none</td><td>install + configure server</td><td>pip install</td><td>pip install</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      Not a competition — a <strong>division of labor</strong>. Keep Postgres for your
+      app's transactions, keep pandas for quick munging. Reach for DuckDB when the
+      question is analytical: aggregations, joins, window functions over serious amounts
+      of local data.
+    </div>
+  </section>
+
+  <div class="cta">
+    <a href="/playground">Try it live in the playground →</a>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:10px">
+      A real DuckDB database runs behind the next page — ingest files, run SQL,
+      inspect query plans, and watch the database state change.
+    </p>
+  </div>
+</main>
+
+<script type="module" src="/static/js/learn.js"></script>
+</body>
+</html>
